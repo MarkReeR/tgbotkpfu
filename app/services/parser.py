@@ -17,6 +17,12 @@ def _strip_dot_zero(series: pd.Series):
         lambda s: re.sub(r'^(\d+)\.0$', r'\1', s) if isinstance(s, str) else s
     )
 
+def _clean_value(val) -> str:
+    """Преобразует любое значение в чистую строку, удаляя nan/None"""
+    if pd.isna(val) or val is None:
+        return ""
+    s = str(val).strip()
+    return "" if s.lower() in ("nan", "none", "") else s
 
 def parse_schedule(csv_text: str, group_code: str) -> List[Dict]:
     if not csv_text:
@@ -65,19 +71,17 @@ def parse_schedule(csv_text: str, group_code: str) -> List[Dict]:
             days, times, weeks, subj, build, room1, room2, type_, teach
     ):
         if s and t:
-            out.append(
-                {
-                    "group": group_code,
-                    "day": d,
-                    "time": t,
-                    "week_type": w,
-                    "subject": s,
-                    "building": b,
-                    "room1": r1,
-                    "room2": r2,
-                    "type": ty,
-                    "teacher": te,
-                }
-            )
+            out.append({
+                "group": group_code,
+                "day": _clean_value(d),
+                "time": _clean_value(t),
+                "week_type": _clean_value(w),
+                "subject": _clean_value(s),
+                "building": _clean_value(b),
+                "room1": _clean_value(r1),
+                "room2": _clean_value(r2),
+                "type": _clean_value(ty),
+                "teacher": _clean_value(te),
+            })
 
     return out

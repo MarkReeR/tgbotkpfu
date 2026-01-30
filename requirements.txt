@@ -1,5 +1,6 @@
 aiogram
 aiohttp
+aiocache
 python-dotenv
 pandas
 tzdata

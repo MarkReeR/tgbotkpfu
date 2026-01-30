@@ -4,7 +4,7 @@ from aiogram import Router, types
 from aiogram.filters import Command
 
 from app.services.config import cfg
-from app.handlers.schedule_buttons import get_schedule_keyboard, user_data
+from app.handlers.schedule_buttons import get_schedule_keyboard, USER_SCHEDULE_CACHE
 from app.services.csv_cache import find_group_schedule_local
 from app.services.parser import parse_schedule
 
@@ -66,7 +66,7 @@ async def cmd_schedule(message: types.Message) -> None:
         )
         return
 
-    user_data[message.from_user.id] = (group, lessons)
+    await USER_SCHEDULE_CACHE.set(f"schedule:{message.from_user.id}", (group, lessons))
 
     if not lessons:
         await status_msg.edit_text(

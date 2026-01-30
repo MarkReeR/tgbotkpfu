@@ -4,11 +4,12 @@ from typing import Dict, List, Tuple
 import re
 from aiogram import Router, types
 from aiogram.utils.keyboard import ReplyKeyboardBuilder
+from aiocache import Cache
 
 router = Router()
 logger = logging.getLogger(__name__)
 
-user_data: Dict[int, Tuple[str, List[dict]]] = {}
+USER_SCHEDULE_CACHE = Cache(Cache.MEMORY, ttl=86400) # 3600 = 1 час, 86400 - день
 
 
 def get_schedule_keyboard():
@@ -103,7 +104,6 @@ def format_day_schedule(lessons: List[dict], day_name: str, show_week_per_lesson
         line_subject = f"{subj}" if subj else ""
         line_type = f"({ltype})" if ltype else ""
 
-        # BUG
         rooms = ", ".join([x for x in (room1, room2) if x])
         loc_parts = ([building] if building else []) + ([f"<i>ауд. {rooms}</i>"] if rooms else [])
         loc = ", ".join(loc_parts)
@@ -141,15 +141,13 @@ async def handle_schedule_buttons(message: types.Message) -> None:
         await message.answer("Выберите действие:", reply_markup=get_schedule_keyboard())
         return
 
-    if user_id not in user_data:
-        await message.answer(
-            "❌ Расписание не найдено. Сначала найдите группу:",
-            reply_markup=types.ReplyKeyboardRemove(),
-        )
+    cached = await USER_SCHEDULE_CACHE.get(f"schedule:{user_id}")
+    if cached is None:
+        await message.answer("Расписание не найдено или устарело. Введите группу снова:")
         return
 
-    group, lessons = user_data[user_id]
-
+    group, lessons = cached
+    
     if message.text == "📅 Сегодня":
         logger.info("Пользователь %s: %s", message.from_user.id, message.text)
         day_name = get_day_name(0)
