@@ -45,16 +45,15 @@ async def _cron_refresh_task(shutdown_event: asyncio.Event):
             secs = await _seconds_until_next_run()
             logger.info("Следующее обновление CSV через %.0f сек.", secs)
             
-            done, pending = await asyncio.wait(
-                [shutdown_event.wait()],
-                timeout=secs,
-                return_when=asyncio.FIRST_COMPLETED
-            )
+            shutdown_task = asyncio.create_task(shutdown_event.wait())
             
-            if shutdown_event.is_set():
+            try:
+                await asyncio.wait_for(shutdown_task, timeout=secs)
                 logger.info("Планировщик обновлений остановлен")
                 break
-                
+            except asyncio.TimeoutError:
+                pass
+            
             await refresh_all()
             
         except asyncio.CancelledError:

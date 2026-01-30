@@ -137,7 +137,7 @@ async def handle_schedule_buttons(message: types.Message) -> None:
     if message.text == "🔍 Другая группа":
         logger.info("Пользователь %s: %s", message.from_user.id, message.text)
         await message.answer(
-            "Введите номер группы:\nПример: 8251160, 2230000",
+            "Введите номер группы:\nПример: 09-825, 8251160, 8251",
             reply_markup=types.ReplyKeyboardRemove(),
         )
         return

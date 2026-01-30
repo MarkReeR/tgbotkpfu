@@ -58,7 +58,6 @@ async def download_all(gids: Optional[List[int]] = None):
 async def ensure_startup_cache():
     existing = {int(p.stem.split("_")[1]) for p in list_cached_files()}
     missing = [g for g in cfg.gids if g not in existing]
-    _build_group_index() 
 
     if not existing:
         logger.info("Кэш пуст — первичная загрузка CSV (%d листов)...", len(cfg.gids))
@@ -68,6 +67,8 @@ async def ensure_startup_cache():
         await download_all(missing)
     else:
         logger.info("CSV уже есть в кэше (%d файлов).", len(existing))
+    
+    _build_group_index()
 
 
 async def refresh_all():
@@ -88,7 +89,10 @@ def _build_group_index():
             with open(path, "r", encoding="utf-8") as f:
                 header = f.readline()
             
-            groups = re.findall(r'\b\d{7}\b', header)
+            # groups = re.findall(r'\b\d{7}\b', header)
+            all_digits = re.findall(r'\d+', header)
+            groups = [digits for digits in all_digits if len(digits) == 7]
+            logger.debug("Найдены группы в %s: %s", path.name, groups)
             for group in groups:
                 if group not in GROUP_INDEX:
                     GROUP_INDEX[group] = path.name
