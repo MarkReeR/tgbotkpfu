@@ -1,14 +1,16 @@
 import asyncio
 import logging
 import os
+import re
 from pathlib import Path
-from typing import List, Optional
+from typing import List, Optional, Dict
 
 from app.services.config import cfg
 from app.services.google_csv import fetch_csv_text
 
 logger = logging.getLogger(__name__)
 
+GROUP_INDEX: Dict[str, str] = {} # group_code: gid_id,csv
 
 def _cache_dir():
     d = Path(os.getenv("CACHE_DIR", getattr(cfg, "cache_dir", "data/csv")))
@@ -56,6 +58,7 @@ async def download_all(gids: Optional[List[int]] = None):
 async def ensure_startup_cache():
     existing = {int(p.stem.split("_")[1]) for p in list_cached_files()}
     missing = [g for g in cfg.gids if g not in existing]
+    _build_group_index() 
 
     if not existing:
         logger.info("Кэш пуст — первичная загрузка CSV (%d листов)...", len(cfg.gids))
@@ -70,19 +73,45 @@ async def ensure_startup_cache():
 async def refresh_all():
     logger.info("Обновление CSV: скачиваю новые версии и заменяю старые...")
     saved = await download_all()
+    _build_group_index()
     logger.info("Готово. Обновлено файлов: %d", len(saved))
+    
+
+
+def _build_group_index():
+    """Сканирует все CSV и строит индекс групп."""
+    global GROUP_INDEX
+    GROUP_INDEX.clear()
+    
+    for path in list_cached_files():
+        try:
+            with open(path, "r", encoding="utf-8") as f:
+                header = f.readline()
+            
+            groups = re.findall(r'\b\d{7}\b', header)
+            for group in groups:
+                if group not in GROUP_INDEX:
+                    GROUP_INDEX[group] = path.name
+                    
+        except Exception as e:
+            logger.warning("Не удалось проиндексировать %s: %s", path, e)
+    
+    logger.info("Построен индекс для %d групп", len(GROUP_INDEX))
 
 
 def find_group_schedule_local(group_code: str):
-    group_code = "".join(ch for ch in (group_code or "") if ch.isdigit())
-    for p in list_cached_files():
-        try:
-            txt = p.read_text(encoding="utf-8", errors="ignore")
-        except Exception as e:
-            logger.warning("Не удалось прочитать %s: %s", p, e)
-            continue
-        if group_code and group_code in txt:
-            logger.info("Группа %s найдена в %s", group_code, p.name)
-            return txt
-    logger.warning("Группа %s не найдена ни в одном локальном CSV.", group_code)
-    return None
+    clean_code = "".join(ch for ch in (group_code or "") if ch.isdigit())
+    if len(clean_code) != 7:
+        return None
+    
+    filename = GROUP_INDEX.get(clean_code)
+    if not filename:
+        logger.warning("Группа %s не найдена в индексе", clean_code)
+        return None
+    
+    path = _cache_dir() / filename
+    try:
+        return path.read_text(encoding="utf-8")
+    except Exception as e:
+        logger.error("Ошибка чтения %s: %s", path, e)
+        return None

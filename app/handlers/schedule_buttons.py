@@ -9,7 +9,13 @@ from aiocache import Cache
 router = Router()
 logger = logging.getLogger(__name__)
 
-USER_SCHEDULE_CACHE = Cache(Cache.MEMORY, ttl=86400) # 3600 = 1 час, 86400 - день
+# 1 час   = 3_600   сек
+# 1 день  = 86_400  сек
+# 3 дня   = 259_200 сек
+# 7 дней  = 604_800 сек
+
+USER_SCHEDULE_CACHE = Cache(Cache.MEMORY, ttl=259_200)
+
 
 
 def get_schedule_keyboard():
@@ -131,7 +137,7 @@ async def handle_schedule_buttons(message: types.Message) -> None:
     if message.text == "🔍 Другая группа":
         logger.info("Пользователь %s: %s", message.from_user.id, message.text)
         await message.answer(
-            "Введите номер группы:\nПример: 09-825, 8251160, 8251",
+            "Введите номер группы:\nПример: 8251160, 2230000",
             reply_markup=types.ReplyKeyboardRemove(),
         )
         return

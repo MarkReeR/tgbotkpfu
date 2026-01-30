@@ -38,18 +38,29 @@ async def _seconds_until_next_run() -> float:
     future = min(t for t in targets if t > now)
     return (future - now).total_seconds()
 
-
-async def _cron_refresh_task():
-    while True:
+            
+async def _cron_refresh_task(shutdown_event: asyncio.Event):
+    while not shutdown_event.is_set():
         try:
             secs = await _seconds_until_next_run()
             logger.info("Следующее обновление CSV через %.0f сек.", secs)
-            await asyncio.sleep(secs)
+            
+            done, pending = await asyncio.wait(
+                [shutdown_event.wait()],
+                timeout=secs,
+                return_when=asyncio.FIRST_COMPLETED
+            )
+            
+            if shutdown_event.is_set():
+                logger.info("Планировщик обновлений остановлен")
+                break
+                
             await refresh_all()
+            
         except asyncio.CancelledError:
-            raise
+            break
         except Exception as e:
-            logger.exception("Ошибка в планировщике обновлений: %s", e)
+            logger.exception("Ошибка в планировщике: %s", e)
             await asyncio.sleep(60)
 
 
@@ -58,8 +69,10 @@ async def main() -> None:
     logger.info("Запуск бота...")
 
     await ensure_startup_cache()
-
-    asyncio.create_task(_cron_refresh_task())
+    
+    shutdown_event = asyncio.Event()
+    
+    refresh_task = asyncio.create_task(_cron_refresh_task(shutdown_event))
 
     bot = Bot(
         token=cfg.bot_token,
@@ -80,7 +93,10 @@ async def main() -> None:
     try:
         await dp.start_polling(bot)
     except asyncio.CancelledError:
-        logger.warning("Polling остановлен (CancelledError)")
+        logger.warning("Polling остановлен")
     finally:
+        shutdown_event.set()
+        await refresh_task
+        
         await bot.session.close()
         logger.info("Бот завершил работу.")
