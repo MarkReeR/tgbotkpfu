@@ -37,16 +37,17 @@ def get_week_menu_keyboard():
     builder.adjust(3, 1)
     return builder.as_markup(resize_keyboard=True)
 
-
-def get_day_name(day_offset: int = 0):
+def get_day_name(day_offset: int = 0) -> str:
     days = ["Понедельник", "Вторник", "Среда", "Четверг", "Пятница", "Суббота", "Воскресенье"]
     today = datetime.now() + timedelta(days=day_offset)
     return days[today.weekday()]
 
-
 def filter_lessons_by_day(lessons: List[dict], day_name: str):
-    return [lesson for lesson in lessons if lesson.get("day") == day_name]
-
+    target_day = day_name.strip().lower()
+    return [
+        lesson for lesson in lessons 
+        if lesson.get("day", "").strip().lower() == target_day
+    ]
 
 def _time_to_minutes(time_str: str | float | None) -> int:
     if not time_str or not isinstance(time_str, str):

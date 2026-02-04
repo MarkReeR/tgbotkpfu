@@ -1,0 +1,25 @@
+version: '3.8'
+
+services:
+  tgbot:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: kpfu-schedule-bot
+    restart: unless-stopped
+    env_file:
+      - .env
+    volumes:
+      - tgbot_logs:/home/app/logs
+      - tgbot_data:/home/app/data
+    ports:
+      - "8000:8000"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+volumes:
+  tgbot_logs:
+  tgbot_

@@ -12,6 +12,8 @@ from app.services.csv_cache import ensure_startup_cache, refresh_all
 from aiogram import Bot, Dispatcher
 from aiogram.client.default import DefaultBotProperties
 from aiogram.enums import ParseMode
+from aiohttp import web
+import threading
 
 logger = logging.getLogger(__name__)
 
@@ -38,7 +40,7 @@ async def _seconds_until_next_run() -> float:
     future = min(t for t in targets if t > now)
     return (future - now).total_seconds()
 
-            
+
 async def _cron_refresh_task(shutdown_event: asyncio.Event):
     while not shutdown_event.is_set():
         try:
@@ -63,8 +65,31 @@ async def _cron_refresh_task(shutdown_event: asyncio.Event):
             await asyncio.sleep(60)
 
 
+async def health_check(request):
+    return web.Response(text="OK")
+
+
+def start_health_server():
+    """Запускает HTTP-сервер для health-check в отдельном потоке"""
+    app = web.Application()
+    app.router.add_get('/health', health_check)
+    runner = web.AppRunner(app)
+    
+    def run():
+        loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
+        loop.run_until_complete(runner.setup())
+        site = web.TCPSite(runner, '0.0.0.0', 8000)
+        loop.run_until_complete(site.start())
+        loop.run_forever()
+    
+    thread = threading.Thread(target=run, daemon=True)
+    thread.start()
+
+
 async def main() -> None:
     setup_logging()
+    start_health_server()
     logger.info("Запуск бота...")
 
     await ensure_startup_cache()

@@ -73,7 +73,7 @@ def parse_schedule(csv_text: str, group_code: str) -> List[Dict]:
         if s and t:
             out.append({
                 "group": group_code,
-                "day": _clean_value(d),
+                "day": _clean_value(d).strip().capitalize(),
                 "time": _clean_value(t),
                 "week_type": _clean_value(w),
                 "subject": _clean_value(s),
