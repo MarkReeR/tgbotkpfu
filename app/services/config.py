@@ -36,5 +36,8 @@ class Config:
     log_level: str = os.getenv("LOG_LEVEL", "INFO")
     log_file: str = os.getenv("LOG_FILE", "logs/bot.log")
 
+    api_admin_login: str = os.getenv("API_ADMIN_LOGIN", "")
+    api_admin_password: str = os.getenv("API_ADMIN_PASSWORD", "")
+
 
 cfg = Config()

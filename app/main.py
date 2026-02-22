@@ -15,6 +15,9 @@ from aiogram.enums import ParseMode
 from aiohttp import web
 import threading
 
+from app.api import api_app
+import uvicorn
+
 logger = logging.getLogger(__name__)
 
 
@@ -28,6 +31,11 @@ def setup_logging():
     root.setLevel(getattr(logging, cfg.log_level.upper(), logging.INFO))
     root.addHandler(handler)
 
+def start_api_server():
+    def run():
+        uvicorn.run(api_app, host="0.0.0.0", port=5000)
+    thread = threading.Thread(target=run, daemon=True)
+    thread.start()
 
 async def _seconds_until_next_run() -> float:
     tz = ZoneInfo(cfg.tz)
@@ -90,6 +98,7 @@ def start_health_server():
 async def main() -> None:
     setup_logging()
     start_health_server()
+    start_api_server()
     logger.info("Запуск бота...")
 
     await ensure_startup_cache()

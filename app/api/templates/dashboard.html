@@ -1,0 +1,38 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Панель управления - Расписание</title>
+    <link rel="stylesheet" href="{{ url_for('static', path='/css/style.css') }}">
+</head>
+<body>
+    <div class="container">
+        <div class="login-box">
+            <h1>Панель управления</h1>
+            <p class="welcome">Добро пожаловать, администратор!</p>
+            
+            <h1>Съебалось чудище</h1>
+            <button type="button" id="logoutBtn" class="logout-btn">Выйти</button>
+            
+            <div id="result" class="result"></div>
+        </div>
+    </div>
+
+    <script>
+        const resultDiv = document.getElementById('result');
+        const logoutBtn = document.getElementById('logoutBtn');
+        
+
+        let token = localStorage.getItem('admin_token');
+        if (!token) {
+            window.location.href = '/admin/login';
+        }
+        
+        logoutBtn.addEventListener('click', () => {
+            localStorage.removeItem('admin_token');
+            window.location.href = '/admin/login';
+        });
+    </script>
+</body>
+</html>
