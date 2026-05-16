@@ -1,9 +1,26 @@
-/.env
-/.idea
-/data
-logs/
-/.idea
-__pycache__/
-/.venv
+```
+# Compiled and build artifacts
+*.o
+*.obj
+*.out
+
+# Dependencies
+vendor/
+
+# Logs and temp files
+*.log
+*.tmp
+
+# Environment
 .env
-.db
+.env.local
+*.env.*
+
+# Editors
+.vscode/
+.idea/
+
+# Go-specific
+*.mod
+*.sum
+```
