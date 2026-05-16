@@ -1,29 +1,20 @@
-FROM python:3.11-slim AS builder
-
-RUN apt-get update && apt-get install -y --no-install-recommends \
-    gcc \
-    && rm -rf /var/lib/apt/lists/*
-
-RUN pip install uv
+FROM golang:1.21-alpine AS builder
 
 WORKDIR /app
 
-COPY requirements.txt .
-RUN uv pip install --system --compile-bytecode -r requirements.txt
+COPY go.mod go.sum ./
+RUN go mod download
 
-FROM python:3.11-slim
+COPY . .
 
-RUN useradd --create-home --shell /bin/bash app
-USER app
-WORKDIR /home/app
+RUN CGO_ENABLED=0 GOOS=linux go build -a -installsuffix cgo -o bot ./cmd/bot
 
-COPY --from=builder --chown=app:app /usr/local /usr/local
+FROM alpine:latest
 
-COPY --chown=app:app . .
+RUN apk --no-cache add ca-certificates tzdata
 
-RUN mkdir -p /home/app/logs /home/app/data/csv
+WORKDIR /root/
 
-# Экспонируем порт для health-check
-EXPOSE 8000
+COPY --from=builder /app/bot .
 
-CMD ["python", "app/main.py"]
+CMD ["./bot"]
