@@ -1,0 +1,46 @@
+name: CI
+
+on:
+  push:
+    branches: [main, master]
+  pull_request:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version: "1.22"
+          cache: true
+
+      - name: gofmt
+        run: |
+          unformatted=$(gofmt -l .)
+          if [ -n "$unformatted" ]; then
+            echo "These files need gofmt:"
+            echo "$unformatted"
+            exit 1
+          fi
+
+      - name: go vet
+        run: go vet ./...
+
+      # The SQLite driver is pure Go, so nothing here needs a C toolchain.
+      - name: Test
+        run: go test -race ./...
+        env:
+          CGO_ENABLED: 1 # -race requires cgo; the build below proves CGO-free works
+
+      - name: Build (static, CGO disabled)
+        run: CGO_ENABLED=0 go build -trimpath ./...
+
+  docker:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build image
+        run: docker build --build-arg VERSION=${GITHUB_SHA::7} -t tgbotkpfu:ci .

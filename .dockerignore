@@ -1,0 +1,15 @@
+# Secrets and local state must never reach the image.
+config.ini
+*.db
+logs/
+data/
+
+# Build artefacts and tooling
+*.exe
+*.test
+*.out
+.git/
+.github/
+.idea/
+.DS_Store
+README.md
