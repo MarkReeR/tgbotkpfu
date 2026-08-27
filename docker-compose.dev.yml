@@ -1,0 +1,10 @@
+# Оверлей для локальной разработки: собирает образ из исходников вместо
+# скачивания готового. Использование:
+#   docker compose -f docker-compose.yml -f docker-compose.dev.yml up -d --build
+services:
+  bot:
+    image: tgbotkpfu:local
+    build:
+      context: .
+      args:
+        VERSION: ${VERSION:-dev}

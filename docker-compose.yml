@@ -1,15 +1,13 @@
+# Боевая конфигурация: берёт готовый образ из GHCR, ничего не собирая.
+# Для локальной сборки из исходников есть docker-compose.dev.yml.
 services:
   bot:
-    build:
-      context: .
-      args:
-        VERSION: ${VERSION:-dev}
-    image: tgbotkpfu:latest
+    image: ghcr.io/markreer/tgbotkpfu:${IMAGE_TAG:-latest}
     container_name: tgbotkpfu
     restart: unless-stopped
 
     environment:
-      # Required. Put the real token in a .env file next to this one:
+      # Обязательно. Положите реальный токен в файл .env рядом с этим:
       #   BOT_TOKEN=123456:AA...
       BOT_TOKEN: ${BOT_TOKEN:?BOT_TOKEN is required}
 
@@ -21,13 +19,13 @@ services:
       PHYSED_GID: ${PHYSED_GID:-0}
       PHYSED_VENUE: ${PHYSED_VENUE:-Спорткомплекс (ВУЗ)}
 
-      # Flip to true for the exam session, then `docker compose up -d` to apply.
+      # Переключите в true на период сессии и выполните docker compose up -d.
       EXAMS_SHOW: ${EXAMS_SHOW:-false}
 
       LOG_LEVEL: ${LOG_LEVEL:-INFO}
       TZ: ${TZ:-Europe/Moscow}
 
-    # The database and logs live here, so the chosen groups survive a redeploy.
+    # База и логи живут здесь, поэтому выбранные группы переживают обновление.
     volumes:
       - bot-data:/app/data
 

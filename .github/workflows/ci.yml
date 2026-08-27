@@ -37,7 +37,10 @@ jobs:
       - name: Build (static, CGO disabled)
         run: CGO_ENABLED=0 go build -trimpath ./...
 
+  # Проверяет, что Dockerfile вообще собирается, до слияния в main.
+  # Публикацией образа занимается отдельный workflow (release.yml).
   docker:
+    if: github.event_name == 'pull_request'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4

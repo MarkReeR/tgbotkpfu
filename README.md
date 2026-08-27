@@ -63,7 +63,8 @@
 
 ## Запуск в Docker
 
-Самый простой путь — ничего, кроме Docker, ставить не нужно:
+Образ собирается в GitHub Actions и публикуется в GHCR, поэтому серверу не нужен
+ни Go, ни компиляция — только скачать готовые 22 МБ:
 
 ```bash
 cp .env.example .env
@@ -72,7 +73,19 @@ cp .env.example .env
 Вписать в `.env` токен от [@BotFather](https://t.me/BotFather), затем:
 
 ```bash
-docker compose up -d --build
+docker compose up -d
+```
+
+Обновление до новой версии — две команды:
+
+```bash
+docker compose pull && docker compose up -d
+```
+
+Собрать образ локально из исходников (нужно ~1 ГБ RAM):
+
+```bash
+docker compose -f docker-compose.yml -f docker-compose.dev.yml up -d --build
 ```
 
 Логи:
@@ -91,6 +104,20 @@ docker compose logs -f
 ```bash
 mkdir -p data && sudo chown -R 65532:65532 data
 ```
+
+### CI/CD
+
+| Workflow | Когда | Что делает |
+| --- | --- | --- |
+| `.github/workflows/ci.yml` | push и pull request | gofmt, `go vet`, тесты с `-race`, сборка без cgo; на PR ещё и проверка Dockerfile |
+| `.github/workflows/release.yml` | push в `main` и теги `v*` | собирает образ и публикует в GHCR |
+
+Теги образа: `latest` для `main`, `v1.2.3` для git-тегов и `sha-abc1234` для
+любого коммита — на последний удобно откатываться.
+
+Пакет в GHCR по умолчанию приватный. Чтобы сервер мог скачивать образ без
+авторизации, после первой публикации сделайте его публичным: страница пакета →
+Package settings → Change visibility → Public.
 
 ### Версия сборки
 
