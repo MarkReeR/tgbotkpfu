@@ -19,7 +19,16 @@ if [ "$before_commit" != "$after_commit" ]; then
 fi
 
 # 2. Тянем образ и смотрим, изменился ли он на самом деле.
-image=$(docker compose config --images | head -1)
+# `| head -1` под `set -o pipefail` может уронить скрипт: head закрывает пайп,
+# docker получает SIGPIPE и возвращает ненулевой код. Поэтому режем строку
+# средствами шелла, без пайпа.
+images=$(docker compose config --images)
+image=${images%%$'\n'*}
+if [ -z "$image" ]; then
+  log "не удалось определить образ из docker-compose.yml"
+  exit 1
+fi
+
 before_image=$(docker image inspect --format '{{.Id}}' "$image" 2>/dev/null || echo "none")
 
 docker compose pull --quiet
@@ -39,4 +48,18 @@ docker compose up -d
 # Старые образы копятся и съедают диск - на маленьком VPS это важно.
 docker image prune -f >/dev/null
 
-log "готово, версия: $(docker compose logs --tail 200 bot 2>/dev/null | grep -o 'tgbotkpfu [^ ]* starting' | tail -1 || echo 'см. docker compose logs')"
+# Даём контейнеру пару секунд подняться, потом достаём строку с версией.
+# pipefail здесь мешает (grep без совпадений возвращает 1), поэтому отключаем
+# его на время этой проверки - её неудача не повод считать деплой провальным.
+sleep 3
+set +o pipefail
+version=$(docker compose logs --tail 200 bot 2>/dev/null | grep -o 'tgbotkpfu [^ ]* starting' | tail -1)
+set -o pipefail
+
+log "готово${version:+, }${version:-, версию см. в docker compose logs}"
+
+# Если контейнер не поднялся - об этом надо знать сразу, а не от пользователей.
+if [ -z "$(docker compose ps --quiet --status running)" ]; then
+  log "ВНИМАНИЕ: контейнер не запущен, смотрите docker compose logs"
+  exit 1
+fi

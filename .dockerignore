@@ -1,15 +1,28 @@
-# Secrets and local state must never reach the image.
+# Секреты и локальное состояние не должны попадать даже в контекст сборки:
+# COPY . . кладёт их в слой промежуточной стадии, а он остаётся в кеше сборщика.
 config.ini
+.env
+.env.*
+!.env.example
 *.db
 logs/
 data/
 
-# Build artefacts and tooling
+# Артефакты сборки и обвязка, которые в образе не нужны
 *.exe
 *.test
 *.out
+bot
 .git/
+.gitignore
+.gitattributes
 .github/
 .idea/
+.vscode/
+.editorconfig
 .DS_Store
 README.md
+LICENSE
+Makefile
+deploy/
+docker-compose*.yml

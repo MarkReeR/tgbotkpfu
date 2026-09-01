@@ -7,6 +7,7 @@ import (
 	"strings"
 	"sync"
 	"time"
+	"unicode/utf8"
 
 	tgBotAPI "github.com/go-telegram-bot-api/telegram-bot-api/v5"
 )
@@ -387,8 +388,31 @@ func (bs *BotService) send(chatID int64, text string, keyboard interface{}) int 
 	return id
 }
 
+// telegramMessageLimit is the hard cap on a message, in characters. Real days
+// currently peak around 2000, but a long enough subject list would silently
+// fail to send, so the text is trimmed rather than rejected by the API.
+const telegramMessageLimit = 4096
+
+// clampMessage shortens text that would be refused by Telegram, cutting on a
+// line boundary so the result still reads as a schedule.
+func clampMessage(text string) string {
+	if utf8.RuneCountInString(text) <= telegramMessageLimit {
+		return text
+	}
+
+	const notice = "\n\n… сообщение обрезано"
+	budget := telegramMessageLimit - utf8.RuneCountInString(notice)
+
+	runes := []rune(text)[:budget]
+	if cut := strings.LastIndex(string(runes), "\n"); cut > 0 {
+		runes = []rune(string(runes)[:cut])
+	}
+	return string(runes) + notice
+}
+
 // sendRaw delivers a message without tracking it, for the anchor message.
 func (bs *BotService) sendRaw(chatID int64, text string, keyboard interface{}) int {
+	text = clampMessage(text)
 	msg := tgBotAPI.NewMessage(chatID, text)
 	msg.ParseMode = tgBotAPI.ModeHTML
 	msg.DisableWebPagePreview = true
@@ -407,7 +431,7 @@ func (bs *BotService) sendRaw(chatID int64, text string, keyboard interface{}) i
 // editMessage rewrites a message in place, which is how day navigation avoids
 // adding anything to the chat. It reports false when the edit could not be made.
 func (bs *BotService) editMessage(chatID int64, messageID int, text string, keyboard *tgBotAPI.InlineKeyboardMarkup) bool {
-	edit := tgBotAPI.NewEditMessageText(chatID, messageID, text)
+	edit := tgBotAPI.NewEditMessageText(chatID, messageID, clampMessage(text))
 	edit.ParseMode = tgBotAPI.ModeHTML
 	edit.DisableWebPagePreview = true
 	if keyboard != nil {

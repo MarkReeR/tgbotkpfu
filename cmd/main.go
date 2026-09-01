@@ -11,6 +11,7 @@ import (
 	"os"
 	"os/signal"
 	"path/filepath"
+	"sort"
 	"strings"
 	"syscall"
 	"time"
@@ -100,6 +101,12 @@ func run() error {
 	return nil
 }
 
+// keptLogFiles is how many previous runs' logs are retained. Every restart
+// starts a new file, so without a cap they would slowly fill the data volume -
+// which on a small VPS is exactly the kind of thing that takes the bot down
+// weeks later for no visible reason.
+const keptLogFiles = 10
+
 // setupLogging sends the log to both the console and a timestamped file in dir.
 func setupLogging(dir string, level string) (*os.File, error) {
 	if err := os.MkdirAll(dir, 0o755); err != nil {
@@ -114,5 +121,26 @@ func setupLogging(dir string, level string) (*os.File, error) {
 
 	Logger.Setup(io.MultiWriter(os.Stdout, f), Logger.ParseLevel(level))
 	Logger.Info("logging to %s at level %s", path, strings.ToUpper(level))
+
+	pruneOldLogs(dir, keptLogFiles)
 	return f, nil
+}
+
+// pruneOldLogs deletes all but the newest keep log files. Failures are only
+// worth a warning: losing old logs is never a reason not to start.
+func pruneOldLogs(dir string, keep int) {
+	entries, err := filepath.Glob(filepath.Join(dir, "bot_*.log"))
+	if err != nil || len(entries) <= keep {
+		return
+	}
+
+	// The names embed a sortable timestamp, so lexical order is chronological.
+	sort.Strings(entries)
+	for _, old := range entries[:len(entries)-keep] {
+		if err := os.Remove(old); err != nil {
+			Logger.Warn("не удалось удалить старый лог %s: %v", old, err)
+			continue
+		}
+		Logger.Debug("удалён старый лог %s", old)
+	}
 }

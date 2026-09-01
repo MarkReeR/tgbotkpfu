@@ -29,6 +29,23 @@ services:
     volumes:
       - bot-data:/app/data
 
+    # Боту нужны десятки мегабайт. Лимит не столько для него, сколько для
+    # сервера: на машине с 1 ГБ памяти утечка в контейнере не должна утаскивать
+    # за собой всю систему.
+    deploy:
+      resources:
+        limits:
+          memory: 256M
+    mem_limit: 256M
+
+    # Ужесточение прав: процесс не сможет повысить привилегии, а корневая
+    # файловая система только на чтение - писать разрешено лишь в том с данными.
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    read_only: true
+
     logging:
       driver: json-file
       options:

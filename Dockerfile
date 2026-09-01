@@ -1,6 +1,6 @@
 # The SQLite driver is pure Go, so the whole thing builds with CGO disabled and
 # ships as a single static binary on a distroless base.
-FROM golang:1.22-alpine AS build
+FROM golang:1.26-alpine AS build
 
 WORKDIR /src
 
