@@ -31,6 +31,10 @@ type Config struct {
 	Sheets         []Schedule.SheetSource
 	RefreshMinutes int
 
+	// SemesterStart anchors the upper/lower week alternation: the week that
+	// contains this date is the upper ("в") one. Set it every semester.
+	SemesterStart time.Time
+
 	PhysEdSpreadsheetID string
 	PhysEdGid           string
 	PhysEdVenue         string
@@ -77,8 +81,48 @@ func Load(path string) (Config, error) {
 
 	cfg.Sheets = ParseSheetSources(env("SHEETS", sched.Key("Sheets").String()))
 	cfg.Location = loadLocation(env("TZ", run.Key("Timezone").MustString("Europe/Moscow")))
+	cfg.SemesterStart = parseSemesterStart(
+		env("SEMESTER_START", sched.Key("SemesterStart").String()), cfg.Location)
 
 	return cfg, cfg.validate()
+}
+
+// semesterStartLayout is the date format expected in the config.
+const semesterStartLayout = "2006-01-02"
+
+// parseSemesterStart reads the configured date, falling back to 1 September of
+// the current academic year when it is absent or malformed.
+func parseSemesterStart(raw string, loc *time.Location) time.Time {
+	if raw = strings.TrimSpace(raw); raw != "" {
+		if t, err := time.ParseInLocation(semesterStartLayout, raw, loc); err == nil {
+			return t
+		}
+	}
+	return defaultSemesterStart(time.Now().In(loc), loc)
+}
+
+// defaultSemesterStart is 1 September of the academic year now falls in, so the
+// spring term keeps counting from the same anchor unless it is set explicitly.
+func defaultSemesterStart(now time.Time, loc *time.Location) time.Time {
+	year := now.Year()
+	if now.Month() < time.September {
+		year--
+	}
+	return time.Date(year, time.September, 1, 0, 0, 0, 0, loc)
+}
+
+// Calendar builds the week-parity calendar from the configured semester start.
+func (c Config) Calendar() Schedule.Calendar {
+	return Schedule.NewCalendar(c.SemesterStart)
+}
+
+// ScheduleURL is the human-facing link to the source spreadsheet, offered as a
+// button on the pinned message.
+func (c Config) ScheduleURL() string {
+	if c.SpreadsheetID == "" {
+		return ""
+	}
+	return "https://docs.google.com/spreadsheets/d/" + c.SpreadsheetID + "/edit"
 }
 
 func (c Config) validate() error {

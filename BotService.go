@@ -22,6 +22,11 @@ const (
 	// Without this the per-chat maps would only ever grow.
 	idleTTL         = 2 * time.Hour
 	janitorInterval = 30 * time.Minute
+
+	// maxTransientPerChat caps the pending-deletion list. A week view produces
+	// eight messages, so this leaves plenty of room for retries without letting
+	// an undeletable message be chased indefinitely.
+	maxTransientPerChat = 50
 )
 
 type BotService struct {
@@ -31,9 +36,16 @@ type BotService struct {
 	PhysEd   *Schedule.PhysEdCache
 	Location *time.Location
 
+	// Calendar decides which weeks are "в" and which are "н".
+	Calendar Schedule.Calendar
+
 	// PhysEdVenue is where the special-medical PE classes are held; it is the
 	// same for every slot, so it lives in the config rather than the sheet.
 	PhysEdVenue string
+
+	// ScheduleURL points at the source spreadsheet, offered as a button on the
+	// pinned message so students can check the original.
+	ScheduleURL string
 
 	// ShowExams toggles the "Экзамены" button in the main menu, so it can be
 	// switched on for the session period and off again afterwards.
@@ -69,8 +81,10 @@ type chatState struct {
 // so adding one does not mean touching every call site.
 type Options struct {
 	Location    *time.Location
+	Calendar    Schedule.Calendar
 	ShowExams   bool
 	PhysEdVenue string
+	ScheduleURL string
 }
 
 func NewBotService(botAPI *tgBotAPI.BotAPI, database Database.Database, sched *Schedule.Cache, physEd *Schedule.PhysEdCache, opts Options) *BotService {
@@ -80,7 +94,9 @@ func NewBotService(botAPI *tgBotAPI.BotAPI, database Database.Database, sched *S
 		Schedule:    sched,
 		PhysEd:      physEd,
 		Location:    opts.Location,
+		Calendar:    opts.Calendar,
 		PhysEdVenue: opts.PhysEdVenue,
+		ScheduleURL: opts.ScheduleURL,
 		ShowExams:   opts.ShowExams,
 		chats:       map[int64]*chatState{},
 	}
@@ -263,6 +279,11 @@ func (bs *BotService) trackTransient(chatID int64, messageIDs ...int) {
 
 	bs.chatsMutex.Lock()
 	state.transient = append(state.transient, messageIDs...)
+	// Retries are bounded: if something truly refuses to be deleted, the oldest
+	// ids are dropped rather than kept and re-attempted on every single action.
+	if extra := len(state.transient) - maxTransientPerChat; extra > 0 {
+		state.transient = append([]int(nil), state.transient[extra:]...)
+	}
 	bs.chatsMutex.Unlock()
 }
 
@@ -282,21 +303,58 @@ func (bs *BotService) takeTransient(chatID int64) []int {
 // never tracked, so it always survives. This is what stops the chat filling up:
 // each new action wipes what the previous one left behind, including the seven
 // messages a week view produces.
+//
+// A delete can fail for a passing reason - most often Telegram's rate limit,
+// which the seven messages of a week view are quite capable of hitting. Those
+// ids are put back so the next action retries them; otherwise a single throttled
+// call would strand that message in the chat forever.
 func (bs *BotService) clearTransient(chatID int64) {
+	var retry []int
 	for _, id := range bs.takeTransient(chatID) {
-		bs.deleteMessage(chatID, id)
+		if !bs.deleteMessage(chatID, id) {
+			retry = append(retry, id)
+		}
+	}
+	if len(retry) > 0 {
+		Logger.Debug("chat %d: %d message(s) will be retried on the next action", chatID, len(retry))
+		bs.trackTransient(chatID, retry...)
 	}
 }
 
-// deleteMessage removes one message, tolerating the usual failures (already
-// gone, too old, or never deletable) since they are not worth surfacing.
-func (bs *BotService) deleteMessage(chatID int64, messageID int) {
+// permanentDeleteFailures are the answers that mean retrying is pointless:
+// the message is already gone, or Telegram will never let us remove it.
+var permanentDeleteFailures = []string{
+	"message to delete not found",
+	"message can't be deleted",
+	"MESSAGE_ID_INVALID",
+	"chat not found",
+	"bot was blocked by the user",
+	"user is deactivated",
+}
+
+// deleteMessage removes one message. It reports false only when the message may
+// still exist and is worth another attempt later.
+func (bs *BotService) deleteMessage(chatID int64, messageID int) bool {
 	if messageID == 0 {
-		return
+		return true
 	}
-	if _, err := bs.BotAPI.Request(tgBotAPI.NewDeleteMessage(chatID, messageID)); err != nil {
-		Logger.Debug("chat %d: could not delete message %d: %v", chatID, messageID, err)
+
+	_, err := bs.BotAPI.Request(tgBotAPI.NewDeleteMessage(chatID, messageID))
+	if err == nil {
+		return true
 	}
+
+	if apiErr, ok := err.(*tgBotAPI.Error); ok {
+		for _, permanent := range permanentDeleteFailures {
+			if strings.Contains(apiErr.Message, permanent) {
+				Logger.Debug("chat %d: message %d cannot be deleted: %v", chatID, messageID, err)
+				return true // nothing to retry
+			}
+		}
+	}
+
+	Logger.Debug("chat %d: delete of message %d failed, will retry: %v", chatID, messageID, err)
+	return false
 }
 
 // pinMessage pins the anchor so it stays at the top of the chat. Pinning is a

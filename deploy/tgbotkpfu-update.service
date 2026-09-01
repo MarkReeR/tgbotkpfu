@@ -1,0 +1,14 @@
+[Unit]
+Description=Обновление бота расписания ВТШ КФУ
+After=network-online.target docker.service
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+# Подставьте своего пользователя и путь, если они отличаются.
+User=markreer
+WorkingDirectory=/home/markreer/tgbotkpfu
+ExecStart=/home/markreer/tgbotkpfu/deploy/update.sh
+
+# Скрипт быстрый; если завис - значит что-то не так, лучше прервать.
+TimeoutStartSec=600

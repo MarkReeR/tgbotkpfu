@@ -76,10 +76,15 @@ func run() error {
 
 	Logger.Info("exams button: %v", cfg.ShowExams)
 
+	Logger.Info("semester starts %s, that week is the upper one",
+		cfg.SemesterStart.Format("02.01.2006"))
+
 	bot := Bot.NewBotService(botAPI, database, sched, physEd, Bot.Options{
 		Location:    cfg.Location,
+		Calendar:    cfg.Calendar(),
 		ShowExams:   cfg.ShowExams,
 		PhysEdVenue: cfg.PhysEdVenue,
+		ScheduleURL: cfg.ScheduleURL(),
 	})
 
 	// Stop cleanly on Ctrl+C or docker stop, so the log file is flushed.

@@ -108,13 +108,13 @@ func FormatDay(lessons []Lesson, dayName string, parity string, date time.Time) 
 }
 
 // FormatDayFor renders the schedule of one group for the calendar day t falls on,
-// picking the right week parity automatically.
-func FormatDayFor(g Group, t time.Time) string {
+// picking the right week parity from the calendar.
+func FormatDayFor(g Group, t time.Time, cal Calendar) string {
 	dayName, isStudyDay := DayName(t)
 	if !isStudyDay {
 		return fmt.Sprintf("📅 <b>%s</b> · %s\n%s\nЗанятий нет (воскресенье)",
 			html.EscapeString(WeekdayNameAny(t)), t.Format("02.01.2006"), separator)
 	}
-	parity := ParityFor(t)
+	parity := cal.ParityFor(t)
 	return FormatDay(g.DaySchedule(dayName, parity), dayName, parity, t)
 }

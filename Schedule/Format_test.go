@@ -62,7 +62,8 @@ func TestFormatDayEmptyAndSunday(t *testing.T) {
 	}
 
 	sunday := time.Date(2026, 8, 30, 0, 0, 0, 0, time.UTC)
-	got := FormatDayFor(Group{Code: "8261160"}, sunday)
+	cal := NewCalendar(time.Date(2026, 9, 1, 0, 0, 0, 0, time.UTC))
+	got := FormatDayFor(Group{Code: "8261160"}, sunday, cal)
 	if !strings.Contains(got, "Воскресенье") || !strings.Contains(got, "воскресенье)") {
 		t.Errorf("unexpected sunday card:\n%s", got)
 	}

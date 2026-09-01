@@ -93,13 +93,21 @@ func removeKeyboard() tgBotAPI.ReplyKeyboardRemove {
 }
 
 // anchorKeyboard is attached to the pinned welcome message, which is the one
-// message that is never wiped - so group switching is always one tap away.
-func anchorKeyboard() tgBotAPI.InlineKeyboardMarkup {
-	return tgBotAPI.NewInlineKeyboardMarkup(
+// message that is never wiped - so group switching and the source spreadsheet
+// are always one tap away. scheduleURL may be empty, in which case the link
+// button is left off rather than pointing nowhere.
+func anchorKeyboard(scheduleURL string) tgBotAPI.InlineKeyboardMarkup {
+	rows := [][]tgBotAPI.InlineKeyboardButton{
 		tgBotAPI.NewInlineKeyboardRow(
 			tgBotAPI.NewInlineKeyboardButtonData("🔄 Сменить группу", CallbackChangeGroup),
 		),
-	)
+	}
+	if scheduleURL != "" {
+		rows = append(rows, tgBotAPI.NewInlineKeyboardRow(
+			tgBotAPI.NewInlineKeyboardButtonURL("📊 Таблица с расписанием", scheduleURL),
+		))
+	}
+	return tgBotAPI.NewInlineKeyboardMarkup(rows...)
 }
 
 // dayNavKeyboard puts "< ☰ >" under a day card: the arrows page one day at a

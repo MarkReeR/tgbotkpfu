@@ -1,0 +1,9 @@
+# Нормализуем переводы строк в репозитории. Без этого шелл-скрипт, сохранённый
+# на Windows с CRLF, падает на сервере с "bad interpreter: /usr/bin/env bash^M".
+* text=auto eol=lf
+
+*.sh text eol=lf
+*.service text eol=lf
+*.timer text eol=lf
+*.yml text eol=lf
+Dockerfile text eol=lf

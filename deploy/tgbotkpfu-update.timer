@@ -1,0 +1,15 @@
+[Unit]
+Description=Проверка обновлений бота расписания ВТШ КФУ
+
+[Timer]
+# Каждые 30 минут, с рандомной задержкой до 5 минут - чтобы не долбить
+# реестр ровно в ноль вместе со всеми остальными.
+OnBootSec=5min
+OnUnitActiveSec=30min
+RandomizedDelaySec=5min
+
+# Если сервер был выключен и проверка пропущена - выполнить сразу после старта.
+Persistent=true
+
+[Install]
+WantedBy=timers.target

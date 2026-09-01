@@ -129,7 +129,7 @@ func (bs *BotService) ensureAnchor(chatID int64, recreate bool) {
 		bs.deleteMessage(chatID, existing)
 	}
 
-	id := bs.sendRaw(chatID, welcomeText, anchorKeyboard())
+	id := bs.sendRaw(chatID, welcomeText, anchorKeyboard(bs.ScheduleURL))
 	if id == 0 {
 		return
 	}
@@ -255,7 +255,7 @@ func (bs *BotService) onDay(chatID int64, dayOffset int) {
 		return
 	}
 	day := bs.now().AddDate(0, 0, dayOffset)
-	bs.send(chatID, Schedule.FormatDayFor(g, day), dayNavKeyboard(day))
+	bs.send(chatID, Schedule.FormatDayFor(g, day, bs.Calendar), dayNavKeyboard(day))
 }
 
 // showDayInPlace rewrites an existing day card for another date, so paging
@@ -267,13 +267,13 @@ func (bs *BotService) showDayInPlace(chatID int64, messageID int, day time.Time)
 		return
 	}
 	keyboard := dayNavKeyboard(day)
-	if bs.editMessage(chatID, messageID, Schedule.FormatDayFor(g, day), &keyboard) {
+	if bs.editMessage(chatID, messageID, Schedule.FormatDayFor(g, day, bs.Calendar), &keyboard) {
 		Logger.Info("chat %d: day card moved to %s", chatID, day.Format(dateLayout))
 		return
 	}
 	// The original card is gone (wiped or too old) - send a fresh one instead of
 	// leaving the press with no visible effect.
-	bs.send(chatID, Schedule.FormatDayFor(g, day), keyboard)
+	bs.send(chatID, Schedule.FormatDayFor(g, day, bs.Calendar), keyboard)
 }
 
 // onWeek sends a header followed by one message per weekday. All seven are
@@ -287,7 +287,7 @@ func (bs *BotService) onWeek(chatID int64, anchor time.Time, filterByParity bool
 	monday := Schedule.MondayOf(anchor)
 	parity := ""
 	if filterByParity {
-		parity = Schedule.ParityFor(monday)
+		parity = bs.Calendar.ParityFor(monday)
 	}
 
 	header := fmt.Sprintf("📋 <b>%s</b>\nГруппа: <b>%s</b>", html.EscapeString(title), html.EscapeString(g.DisplayName()))
